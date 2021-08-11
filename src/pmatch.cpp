@@ -1,26 +1,32 @@
 #include "pmatch.h"
 #include <algorithm>
 
-pmatch::Node::Node(bool is_terminal): is_terminal(is_terminal) {}
+pmatch::Node::Node(bool is_terminal): is_terminal(is_terminal), p_has_transition(false) {}
 
 pmatch::Node::~Node()
 {
 }
 
-std::pair<pmatch::Node*, object> &pmatch::Node::get_transition()
+std::pair<pmatch::Node*, py::object> &pmatch::Node::get_transition()
 {
     return transition;
 }
 
-void pmatch::Node::set_transition(pmatch::Node *to, object symbol)
+void pmatch::Node::set_transition(pmatch::Node *to, const py::object &symbol)
 {
     transition.first = to;
     transition.second = symbol;
+    p_has_transition = true;
 }
 
-void pmatch::Node::set_transition(pmatch::Node &to, object symbol)
+void pmatch::Node::set_transition(pmatch::Node &to, const py::object &symbol)
 {
     pmatch::Node::set_transition(&to, symbol);
+}
+
+bool pmatch::Node::has_transition() const
+{
+    return p_has_transition;
 }
 
 std::set<pmatch::Node*> &pmatch::Node::get_epsilon_transitions()
@@ -38,11 +44,11 @@ void pmatch::Node::add_epsilon_transition(Node &to)
     epsilon_transitions.insert(&to);
 }
 
-pmatch::NFA::NFA(object symbol)
+pmatch::NFA::NFA(py::object symbol)
 {
     start = create_node(false);
     end = create_node(true);
-    if (symbol != 0)
+    if (!symbol.is_none())
         start->set_transition(end, symbol);
     else
         start->add_epsilon_transition(end);
@@ -147,17 +153,17 @@ static void get_next_states(pmatch::Node* state, std::set<pmatch::Node*>& states
     get_next_states(state, states, visited);
 }
 
-ssize_t pmatch::NFA::match(const std::vector<object>& inp)
+ssize_t pmatch::NFA::match(std::vector<py::object>& inp)
 {
-    std::set<pmatch::Node*> current_states;
+    std::set<pmatch::Node*> current_states, next_states;
     std::set<ssize_t> matches({-1});
     get_next_states(start, current_states);
     ssize_t count = 0;
-    for (object symbol : inp) {
+    for (const py::object& symbol : inp) {
         count++;
-        std::set<pmatch::Node*> next_states;
+        next_states.clear();
         for (Node* state : current_states) {
-            if (state->get_transition().second == symbol)
+            if (state->has_transition() && symbol.equal(state->get_transition().second))
                 get_next_states(state->get_transition().first, next_states);
         }
         current_states = next_states;
@@ -167,6 +173,8 @@ ssize_t pmatch::NFA::match(const std::vector<object>& inp)
                 break;
             }
         }
+        if (next_states.size() == 0)
+            break;
     }
     return *std::max_element(matches.begin(), matches.end());
 }

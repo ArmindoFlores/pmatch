@@ -5,7 +5,9 @@
 #include <set>
 #include <vector>
 #include <cstdlib>
-typedef char object;
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
 
 namespace pmatch {
     class Node {
@@ -15,15 +17,17 @@ namespace pmatch {
         Node(bool is_terminal=false);
         ~Node();
 
-        std::pair<Node*, object> &get_transition();
-        void set_transition(Node *to, object symbol);
-        void set_transition(Node &to, object symbol);
+        std::pair<Node*, py::object> &get_transition();
+        void set_transition(Node *to, const py::object &symbol);
+        void set_transition(Node &to, const py::object &symbol);
+        bool has_transition() const;
         std::set<Node*> &get_epsilon_transitions();
         void add_epsilon_transition(Node *to);
         void add_epsilon_transition(Node &to);
 
     private:
-        std::pair<Node*, object> transition;
+        bool p_has_transition;
+        std::pair<Node*, py::object> transition;
         std::set<Node*> epsilon_transitions;
     };
 
@@ -32,7 +36,7 @@ namespace pmatch {
      */
     class NFA {
     public:
-        NFA(object symbol);
+        NFA(py::object symbol);
         NFA(NFA&&);
         ~NFA();
 
@@ -72,7 +76,7 @@ namespace pmatch {
          * Try to apply the pattern represented by the NFA to the start of the string
          * @returns the size of the match if one is found, and -1 otherwise
          */
-        ssize_t match(const std::vector<object>& inp);
+        ssize_t match(std::vector<py::object>& inp);
 
     private:
         // Start and end nodes, respectively
@@ -81,6 +85,17 @@ namespace pmatch {
         std::set<Node*> to_delete;
         Node *create_node(bool is_terminal=false);
     };
+}
+
+PYBIND11_MODULE(_pmatch, m) {
+    py::class_<pmatch::NFA>(m, "NFA")
+        .def(py::init<py::object>())
+        .def("concatenation", &pmatch::NFA::concat)
+        .def("union", &pmatch::NFA::uni)
+        .def("closure", &pmatch::NFA::closure)
+        .def("semi_closure", &pmatch::NFA::semi_closure)
+        .def("optional", &pmatch::NFA::optional)
+        .def("match", &pmatch::NFA::match);
 }
 
 #endif
