@@ -1,3 +1,4 @@
 bin/*
 build/*
 dist/*
+pmatch.egg-info/*
