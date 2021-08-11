@@ -9,7 +9,8 @@ class NFA:
     """A Python object that represents a non-deterministic finite automaton"""
     def __init__(self, symbol: Any):
         self.__NFA = _pmatch.NFA(symbol)
-        self.__symbol_type = symbol.__class__.__name__
+        self.__symbol_type = type(symbol)
+        self.__symbol_type_name = symbol.__class__.__name__
 
     def match(self, sequence: Sequence) -> int:
         """
@@ -17,7 +18,7 @@ class NFA:
         Returns the size of the match if one is found and -1 otherwise.
         """
         if len(sequence) > 0 and self.__symbol_type != type(sequence[0]):
-            raise TypeError(f"Invalid type for matching operation: '{sequence[0].__class__.__name__}' (should be '{self.__symbol_type}')")
+            raise TypeError(f"Invalid type for matching operation: '{sequence[0].__class__.__name__}' (should be '{self.__symbol_type_name}')")
         return self.__NFA.match([symbol for symbol in sequence])
 
     def concatenate(self, nfa: "NFA") -> "NFA":
