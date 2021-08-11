@@ -3,3 +3,7 @@ This library aims to provide regex-like functionality while recognizing patterns
 
 ## Usage
 TODO
+
+## Instalation
+You can install this package using setup.py:
+```$ python3 setup.py install```
