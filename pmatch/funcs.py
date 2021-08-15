@@ -1,7 +1,6 @@
 __all__ = ["_compile"]
 
 from .NFA import NFA
-from pprint import pprint
 
 
 class DictWrapper(dict):
@@ -25,7 +24,7 @@ def _process_word(word, pattern, stack, col, group, is_or, variables):
     if len(word) > 0:
         should_raise = False
         try:
-            obj = eval(word, variables)
+            obj = eval(word, {vname: v for vname, v in variables.items()})
         except Exception:
             should_raise = True
         if should_raise:
@@ -97,11 +96,11 @@ def _produce_stack(pattern: str, variables: dict):
         raise SystemError(_get_error_string(pattern, col) + "Missing ')'.")
     return stack
 
-def _inspect_stack(stack):
+def _inspect_stack(stack, nfa):
     results = []
     for obj in stack["objects"]:
         if not isinstance(obj, DictWrapper):
-            results.append(NFA(obj))
+            results.append(nfa(obj))
         else:
             results.append(_inspect_stack(obj))
     if len(results) > 0:
@@ -119,6 +118,6 @@ def _inspect_stack(stack):
             expr.union(results[1])
         return expr
 
-def _compile(pattern: str, variables: dict) -> NFA:
+def _compile(pattern: str, variables: dict, nfa=NFA):
     stack = _produce_stack(pattern, variables)
-    return _inspect_stack(stack)
+    return _inspect_stack(stack, nfa)
