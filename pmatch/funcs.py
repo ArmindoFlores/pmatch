@@ -1,6 +1,7 @@
 __all__ = ["_compile"]
 
 from .NFA import NFA
+import traceback
 
 
 class DictWrapper(dict):
@@ -20,19 +21,21 @@ def _get_group(stack, group):
         p = p["objects"][-1]
     return p
 
-def _process_word(word, pattern, stack, col, group, is_or, variables):
+def _process_word(word, pattern, stack, col, group, is_or, variables, process_or=False):
     if len(word) > 0:
         should_raise = False
         try:
             obj = eval(word, {vname: v for vname, v in variables.items()})
-        except Exception:
+        except Exception as e:
+            traceback.print_exc()
             should_raise = True
         if should_raise:
             raise RuntimeError(_get_error_string(pattern, col, len(word)) + f"Unkown object: {word}")
         _get_group(stack, group)["objects"].append(obj)
-        if is_or == group and is_or != 0:
-            group -= 1
-            is_or = 0
+
+    if is_or == group and is_or != 0 and (process_or or len(word) > 0):
+        group -= 1
+        is_or = 0
     return group, is_or
 
 def _produce_stack(pattern: str, variables: dict):
@@ -67,7 +70,7 @@ def _produce_stack(pattern: str, variables: dict):
             word = ""
             _get_group(stack, group)["flags"].add("some")
         elif char == "|" and not escaped:
-            group, is_or = _process_word(word, pattern, stack, col-1, group, is_or, variables)
+            group, is_or = _process_word(word, pattern, stack, col-1, group, is_or, variables, True)
             word = ""
             g = _get_group(stack, group)
             if len(g["objects"]) > 0:
@@ -90,8 +93,9 @@ def _produce_stack(pattern: str, variables: dict):
         col += 1
 
     group, is_or = _process_word(word, pattern, stack, col, group, is_or, variables)
-    if group == is_or and is_or != 0:
+    if is_or != 0:
         group -= 1
+        is_or = 0
     if group != 0:
         raise SystemError(_get_error_string(pattern, col) + "Missing ')'.")
     return stack
@@ -102,7 +106,7 @@ def _inspect_stack(stack, nfa):
         if not isinstance(obj, DictWrapper):
             results.append(nfa(obj))
         else:
-            results.append(_inspect_stack(obj))
+            results.append(_inspect_stack(obj, nfa))
     if len(results) > 0:
         expr = results[0]
         if not "or" in stack["flags"]:
