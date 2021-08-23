@@ -1,6 +1,6 @@
 __all__ = ["NFA", "NFAContext"]
 
-from typing import Any, Iterable, Sequence, Set
+from typing import Iterable, Sequence, Type
 
 
 class ordered_set:
@@ -101,7 +101,7 @@ class NFAContext:
         return "/".join(self.path)
 
     def copy(self):
-        new_nfactx = NFAContext()
+        new_nfactx = self.__class__()
         new_nfactx.offset = self.offset
         new_nfactx.visited_objs = self.visited_objs.copy()
         new_nfactx.visited = self.visited.copy()
@@ -173,8 +173,8 @@ class NFA:
         self._start, self._end = new_start, new_end
         return self
 
-    def match(self, sequence: Sequence) -> int:
-        return max(self._match(sequence, NFAContext()))
+    def match(self, sequence: Sequence, custom_context: Type[NFAContext]=NFAContext) -> int:
+        return max(self._match(sequence, custom_context()))
 
     def _match(self, sequence: Sequence, ctx: NFAContext) -> ordered_set:
         can_call = True
@@ -205,7 +205,7 @@ class NFA:
                             results = ctx.cache[(state.transition[1], i)]
                         elif can_call:
                             new_context = ctx.copy()
-                            new_context.visited = new_visited
+                            new_context.visited = ordered_set()
                             new_context.offset = i
                             results = state.transition[1]._match(sequence, new_context)
                             new_context.cache[(state.transition[1], i)] = results
@@ -217,7 +217,8 @@ class NFA:
 
             current_states = next_states
             ctx.visited.update(new_visited)
-            new_visited = ctx.visited.copy()
+            #new_visited = ctx.visited.copy()
+            new_visited = ordered_set()
             for state, i in current_states:
                 if state.is_terminal:
                     matches.add(i)
